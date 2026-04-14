@@ -7,14 +7,17 @@ export default function AdminDashboard({ user, onLogout }) {
   const { appointments, notifications, removeNotification, allocateEmergency } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('overview');
   const [allocationSelections, setAllocationSelections] = useState({});
+  const [showAddDoctor, setShowAddDoctor] = useState(false);
+  const [newDoctor, setNewDoctor] = useState({ name: '', department: 'General Medicine' });
 
-  // Mock list of doctors mapped to departments
-  const defaultDoctors = [
+  // Initial mock list of doctors
+  const initialDoctors = [
     { id: '1', name: 'Dr. Sarah Jenkins', department: 'Cardiology', status: 'Active', casesToday: 0 },
     { id: '2', name: 'Dr. Robert Fox', department: 'Neurology', status: 'Active', casesToday: 0 },
     { id: '3', name: 'Dr. Alice Walker', department: 'Pediatrics', status: 'On Leave', casesToday: 0 },
     { id: '4', name: 'Dr. James Smith', department: 'General Medicine', status: 'Active', casesToday: 0 },
   ];
+  const [doctorsList, setDoctorsList] = useState(initialDoctors);
 
   const specialists = ['Cardiology', 'Dermatology', 'Neurology', 'Orthopedics', 'Pediatrics', 'General Medicine'];
 
@@ -67,8 +70,8 @@ export default function AdminDashboard({ user, onLogout }) {
             <div className="glass-panel" style={{ background: 'var(--surface)' }}>
               <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Active Medical Staff</h3>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem' }}>
-                <span style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>{defaultDoctors.filter(d => d.status === 'Active').length}</span>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.9rem', marginBottom: '0.25rem' }}>/ {defaultDoctors.length} total</span>
+                <span style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>{doctorsList.filter(d => d.status === 'Active').length}</span>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.9rem', marginBottom: '0.25rem' }}>/ {doctorsList.length} total</span>
               </div>
             </div>
           </div>
@@ -148,12 +151,43 @@ export default function AdminDashboard({ user, onLogout }) {
     }
 
     if (activeTab === 'doctors') {
+      const handleAddDoctor = (e) => {
+        e.preventDefault();
+        if (newDoctor.name.trim()) {
+           const id = Date.now().toString();
+           setDoctorsList([...doctorsList, { ...newDoctor, id, status: 'Active', casesToday: 0 }]);
+           setShowAddDoctor(false);
+           setNewDoctor({ name: '', department: 'General Medicine' });
+        }
+      };
+
       return (
         <div className="glass-panel animate-fade-in" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Doctors & Staff Directory</h3>
-            <button className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}><UserPlus size={16} /> Add Personnel</button>
+            <button onClick={() => setShowAddDoctor(!showAddDoctor)} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+              <UserPlus size={16} /> {showAddDoctor ? 'Cancel Adding' : 'Add Personnel'}
+            </button>
           </div>
+          
+          {showAddDoctor && (
+             <div style={{ padding: '1.5rem', background: 'var(--background)', borderBottom: '1px solid var(--border)' }} className="animate-fade-in">
+               <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary)' }}>Register New Medical Staff</h4>
+               <form onSubmit={handleAddDoctor} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+                 <div style={{ flex: 1 }}>
+                   <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Full Name</label>
+                   <input type="text" value={newDoctor.name} onChange={(e) => setNewDoctor({...newDoctor, name: e.target.value})} placeholder="e.g. Dr. John Doe" style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-primary)' }} required />
+                 </div>
+                 <div style={{ flex: 1 }}>
+                   <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Department Specialty</label>
+                   <select value={newDoctor.department} onChange={(e) => setNewDoctor({...newDoctor, department: e.target.value})} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-primary)' }}>
+                     {specialists.map(s => <option key={s} value={s}>{s}</option>)}
+                   </select>
+                 </div>
+                 <button type="submit" className="btn btn-primary" style={{ padding: '0.65rem 1.5rem' }}>Save Personnel</button>
+               </form>
+             </div>
+          )}
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
@@ -164,7 +198,7 @@ export default function AdminDashboard({ user, onLogout }) {
               </tr>
             </thead>
             <tbody>
-              {defaultDoctors.map(doc => {
+              {doctorsList.map(doc => {
                 // Dynamically assign case loads connecting the Doctor to the Patient logic
                 const matchedCases = departmentStats[doc.department] || 0;
                 return (
@@ -207,18 +241,28 @@ export default function AdminDashboard({ user, onLogout }) {
                   <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Assigned Dept</th>
                   <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Symptoms</th>
                   <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Queue Status</th>
+                  <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Clinical History</th>
                 </tr>
               </thead>
               <tbody>
                 {appointments.map((p, idx) => (
                   <tr key={p.id || idx} style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-                    <td style={{ padding: '1rem 1.5rem', fontWeight: 600 }}>{p.name} (Age: {p.age})</td>
-                    <td style={{ padding: '1rem 1.5rem', color: 'var(--primary)' }}>{p.specialist}</td>
-                    <td style={{ padding: '1rem 1.5rem' }}>{p.disease}</td>
+                    <td style={{ padding: '1rem 1.5rem', fontWeight: 600 }}>{p.name} <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal'}}>(Age: {p.age})</span></td>
+                    <td style={{ padding: '1rem 1.5rem', color: 'var(--primary)', fontWeight: 500 }}>{p.specialist}</td>
+                    <td style={{ padding: '1rem 1.5rem', fontSize: '0.9rem' }}>{p.disease}</td>
                     <td style={{ padding: '1rem 1.5rem' }}>
-                      <span style={{ fontWeight: 600, color: p.status === 'Completed' ? 'var(--success)' : 'var(--warning)' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.85rem', padding: '0.25rem 0.5rem', borderRadius: '8px', background: p.status === 'Completed' ? 'rgba(33,168,150,0.1)' : 'rgba(244, 162, 97, 0.1)', color: p.status === 'Completed' ? 'var(--success)' : 'var(--warning)' }}>
                         {p.status || 'Waiting'}
                       </span>
+                    </td>
+                    <td style={{ padding: '1rem 1.5rem', maxWidth: '300px' }}>
+                      {p.notes ? (
+                        <div style={{ background: 'var(--background)', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', maxHeight: '100px', overflowY: 'auto' }}>
+                           {p.notes}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Pending consultation...</span>
+                      )}
                     </td>
                   </tr>
                 ))}

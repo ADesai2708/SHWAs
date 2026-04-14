@@ -10,6 +10,7 @@ import PatientDash from './pages/PatientDash';
 import DoctorDash from './pages/DoctorDash';
 import AdminDash from './pages/AdminDash';
 import BookAppointment from './pages/BookAppointment';
+import PatientHistory from './pages/PatientHistory';
 
 import './index.css';
 
@@ -38,6 +39,12 @@ function App() {
           <Route path="/doctor" element={
             <ProtectedRoute allowedRoles={['doctor']}>
               <DoctorDash user={user} onLogout={logout} />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/doctor/history" element={
+            <ProtectedRoute allowedRoles={['doctor']}>
+              <PatientHistory user={user} />
             </ProtectedRoute>
           } />
           

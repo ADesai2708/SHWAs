@@ -75,8 +75,13 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('appointments', JSON.stringify(updated));
   };
 
-  const updateAppointmentStatus = (id, newStatus) => {
-    const updated = appointments.map(appt => appt.id === id ? { ...appt, status: newStatus } : appt);
+  const updateAppointmentStatus = (id, newStatus, notes = null) => {
+    const updated = appointments.map(appt => {
+      if (appt.id === id) {
+        return { ...appt, status: newStatus, ...(notes && { notes }) };
+      }
+      return appt;
+    });
     setAppointments(updated);
     localStorage.setItem('appointments', JSON.stringify(updated));
   };

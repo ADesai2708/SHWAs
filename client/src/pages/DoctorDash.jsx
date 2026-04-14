@@ -1,8 +1,10 @@
 import React, { useContext, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Activity, LogOut, CalendarDays, Users, TrendingUp, Clock, CheckCircle, ArrowRight, AlertTriangle, FileText, ClipboardList } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
 export default function DoctorDashboard({ user, onLogout }) {
+  const navigate = useNavigate();
   const { appointments, updateAppointmentStatus, notifications, removeNotification } = useContext(AuthContext);
   const [scheduleMode, setScheduleMode] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
@@ -49,8 +51,7 @@ export default function DoctorDashboard({ user, onLogout }) {
 
   const handleEndSession = () => {
     if (activeSession) {
-      // Future scope: Save sessionNotes to the database
-      updateAppointmentStatus(activeSession.id, 'Completed');
+      updateAppointmentStatus(activeSession.id, 'Completed', sessionNotes);
       setActiveSession(null);
       setSessionNotes('');
     }
@@ -121,9 +122,14 @@ export default function DoctorDashboard({ user, onLogout }) {
             <h1 style={{ fontSize: '2rem', fontWeight: 700 }}>Good Morning, Dr. {user?.name || 'Doctor'}</h1>
             <p style={{ color: 'var(--text-secondary)' }}>You have {totalCount - completedCount} pending patients scheduled for today in {user?.specialization || 'your department'}.</p>
           </div>
-          <button onClick={() => setScheduleMode(!scheduleMode)} className={scheduleMode ? "btn btn-ghost" : "btn btn-primary"}>
-            <CalendarDays size={18} /> {scheduleMode ? 'View Live Queue' : 'Manage Schedule'}
-          </button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button onClick={() => navigate('/doctor/history')} className="btn btn-primary" style={{ background: 'var(--primary)' }}>
+              <FileText size={18} /> Patient History by Date
+            </button>
+            <button onClick={() => setScheduleMode(!scheduleMode)} className={scheduleMode ? "btn btn-ghost" : "btn btn-primary"}>
+              <CalendarDays size={18} /> {scheduleMode ? 'View Live Queue' : 'Manage Schedule'}
+            </button>
+          </div>
         </div>
 
         {scheduleMode ? (
