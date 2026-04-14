@@ -29,9 +29,17 @@ export const AuthProvider = ({ children }) => {
       
       // Auto-inject a high-priority emergency appointment 
       setAppointments(prev => {
-        // Avoid duplicates if we broadcast to self
-        if (prev.find(a => a.id === emergencyData.id)) return prev;
+        // Find if this emergency already exists locally (i.e., we are the patient who pushed it)
+        const existingIdx = prev.findIndex(a => a.id === emergencyData.id);
+        if (existingIdx !== -1) {
+          // Update the locally mocked emergency with the server's real ML-based assigned specialist
+          const updated = [...prev];
+          updated[existingIdx] = { ...updated[existingIdx], ...emergencyData };
+          localStorage.setItem('appointments', JSON.stringify(updated));
+          return updated;
+        }
         
+        // Otherwise, it’s a new external alert 
         const updated = [...prev, emergencyData];
         localStorage.setItem('appointments', JSON.stringify(updated));
         return updated;

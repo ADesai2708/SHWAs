@@ -8,7 +8,7 @@ const Sidebar = ({ userName, onLogout }) => {
         <div style={{ background: 'var(--primary)', color: 'white', padding: '0.5rem', borderRadius: '8px' }}>
           <Activity size={24} />
         </div>
-        <h2 style={{ color: 'var(--primary)', margin: 0, fontWeight: 700, fontSize: '1.4rem' }}>CareSync</h2>
+        <h2>SHWAS</h2>
       </div>
       <div style={{ flex: 1, padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', paddingLeft: '0.5rem', marginBottom: '0.5rem' }}>Menu</p>

@@ -35,7 +35,7 @@ export default function Login({ onLogin }) {
           <div style={{ display: 'inline-flex', background: 'var(--primary-light)', color: 'white', padding: '1rem', borderRadius: '50%', marginBottom: '1rem' }}>
             <HeartPulse size={32} />
           </div>
-          <h1 style={{ color: 'var(--primary)', fontWeight: 700 }}>CareSync Login</h1>
+          <h1 style={{ color: 'var(--primary)', fontWeight: 700 }}>SHWAS Login</h1>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', background: '#e2e8f0', padding: '0.25rem', borderRadius: '8px' }}>

@@ -40,7 +40,7 @@ export default function PatientDashboard({ user, onLogout }) {
           <div style={{ background: 'var(--primary-light)', color: 'white', padding: '0.5rem', borderRadius: '8px' }}>
             <Activity size={24} />
           </div>
-          <h2 style={{ color: 'var(--primary)', margin: 0 }}>CareSync Details</h2>
+          <h2 style={{ color: 'var(--primary)', margin: 0 }}>SHWAS Details</h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>

@@ -1,4 +1,4 @@
-# CareSync - Hospital Workflow Optimization
+# SHWAS - Hospital Workflow Optimization
 
 This project encapsulates a full-stack deployment based on your Software Requirement Specification (SRS) document, developed with React (Vite) and Node/Express. 
 

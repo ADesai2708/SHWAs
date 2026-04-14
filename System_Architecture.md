@@ -1,4 +1,4 @@
-# CareSync - Hospital Workflow Optimization System
+# SHWAS - Hospital Workflow Optimization System
 ## System Architecture & Documentation
 
 Based on the Software Requirement Specification, the entire project structure has been built in this workspace.
@@ -86,7 +86,7 @@ npm install
 Create a `.env` in the `/server` folder (this handles critical JWT configuration):
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/caresync
+MONGODB_URI=mongodb://localhost:27017/shwas
 JWT_SECRET=supersecret_key_change_me
 ```
 

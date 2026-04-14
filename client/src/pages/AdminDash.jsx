@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { Activity, LogOut, BarChart4, Users, LayoutDashboard, Settings, UserPlus, HeartPulse, Stethoscope, FileText, AlertTriangle } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, Legend } from 'recharts';
 
 export default function AdminDashboard({ user, onLogout }) {
   const { appointments, notifications, removeNotification, allocateEmergency } = useContext(AuthContext);
@@ -28,6 +29,24 @@ export default function AdminDashboard({ user, onLogout }) {
 
   const renderContent = () => {
     if (activeTab === 'overview') {
+      // Prepare Data for Charts
+      const datesObj = appointments.reduce((acc, appt) => {
+        const d = appt.date || new Date().toISOString().split('T')[0];
+        acc[d] = (acc[d] || 0) + 1;
+        return acc;
+      }, {});
+      const trafficData = Object.keys(datesObj)
+        .map(date => ({ date, patients: datesObj[date] }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(-7); // Last 7 days
+
+      const COLORS = ['#21a896', '#0f6b92', '#e63946', '#f4a261', '#2a9d8f', '#e9c46a'];
+      const pieData = Object.keys(departmentStats).map((dept, index) => ({
+        name: dept,
+        value: departmentStats[dept],
+        color: COLORS[index % COLORS.length]
+      }));
+
       return (
         <div className="animate-fade-in">
           <div className="grid grid-cols-3" style={{ marginBottom: '2rem', gap: '1.5rem' }}>
@@ -68,6 +87,60 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+
+          {/* New Analytics Graphs Section */}
+          <div className="grid grid-cols-2" style={{ gap: '1.5rem', marginTop: '1.5rem' }}>
+            {/* Traffic over Time Bar Chart */}
+            <div className="glass-panel" style={{ background: 'var(--surface)' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Daily Patient Traffic</h3>
+              <div style={{ width: '100%', height: 300 }}>
+                {trafficData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={trafficData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                      <XAxis dataKey="date" tick={{ fill: 'var(--text-secondary)' }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: 'var(--text-secondary)' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)' }} cursor={{ fill: 'var(--background)' }} />
+                      <Bar dataKey="patients" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>No traffic data available.</div>
+                )}
+              </div>
+            </div>
+
+            {/* Symptoms / Specialist Split Pie Chart */}
+            <div className="glass-panel" style={{ background: 'var(--surface)' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Cases by Department</h3>
+              <div style={{ width: '100%', height: 300 }}>
+                {pieData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={80}
+                        outerRadius={110}
+                        paddingAngle={5}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--text-primary)' }} />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ color: 'var(--text-secondary)' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>No case data available.</div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -261,7 +334,7 @@ export default function AdminDashboard({ user, onLogout }) {
           <div style={{ background: 'var(--primary)', color: 'white', padding: '0.5rem', borderRadius: '8px' }}>
             <Activity size={24} />
           </div>
-          <h2 style={{ color: 'var(--primary)', margin: 0, fontWeight: 700, fontSize: '1.4rem' }}>CareSync</h2>
+          <h2 style={{ color: 'var(--primary)', margin: 0, fontWeight: 700, fontSize: '1.4rem' }}>SHWAS</h2>
         </div>
         
         <div style={{ flex: 1, padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

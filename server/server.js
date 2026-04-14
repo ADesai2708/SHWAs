@@ -4,6 +4,8 @@ require('dotenv').config();
 const connectDB = require('./config/db');
 const http = require('http');
 const { Server } = require('socket.io');
+const { predictDepartment } = require('./ml/predictSpecialty');
+
 
 const app = express();
 const server = http.createServer(app);
@@ -20,6 +22,15 @@ io.on('connection', (socket) => {
 
   socket.on('declare_emergency', (data) => {
     console.log('Emergency declared:', data);
+
+    // AI/ML Routing Engine Integration
+    // Auto-predict specialist mapping using Naive Bayes text classification
+    if (data.disease && (data.specialist === 'Pending Allocation' || !data.specialist)) {
+      const predictedSpec = predictDepartment(data.disease);
+      data.specialist = predictedSpec;
+      console.log(`[ML_ROUTER] System automatically predicting ${predictedSpec} for symptoms: ${data.disease}`);
+    }
+
     // Broadcast to all clients (Doctors and Admins will listen to this)
     io.emit('emergency_alert', data);
   });
