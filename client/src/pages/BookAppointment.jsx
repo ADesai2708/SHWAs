@@ -9,7 +9,10 @@ export default function BookAppointment({ user, onLogout }) {
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const defaultDate = tomorrow.toISOString().split('T')[0];
+  const y = tomorrow.getFullYear();
+  const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
+  const d = String(tomorrow.getDate()).padStart(2, '0');
+  const defaultDate = `${y}-${m}-${d}`;
 
   const [formData, setFormData] = useState({
     name: user?.name || '',

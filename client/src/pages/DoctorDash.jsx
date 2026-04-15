@@ -24,13 +24,18 @@ function getDayName(dateStr) {
 
 // Helper: get the date string for a given day name in the current week
 function getDateForDay(dayName) {
-  const dayMap = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5 };
+  const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
   const today = new Date();
   const currentDay = today.getDay(); // 0=Sun
-  const diff = (dayMap[dayName] || 1) - currentDay;
+  const diff = (dayMap[dayName] || 0) - currentDay;
   const target = new Date(today);
   target.setDate(today.getDate() + diff);
-  return target.toISOString().split('T')[0];
+  
+  // Return local YYYY-MM-DD to avoid timezone shift from UTC strings
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, '0');
+  const d = String(target.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export default function DoctorDashboard({ user, onLogout }) {
@@ -46,7 +51,7 @@ export default function DoctorDashboard({ user, onLogout }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [hoveredSlot, setHoveredSlot] = useState(null);
 
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
   // Filter appointments for this doctor's specialization. Fallback to all if user specialization isn't set.
@@ -60,9 +65,13 @@ export default function DoctorDashboard({ user, onLogout }) {
   const bookedSlotsMap = useMemo(() => {
     const map = {};
     myAppointments.forEach(appt => {
+      if (!appt.date) return;
       const dayName = getDayName(appt.date);
       const time24 = to24h(appt.time);
-      if (dayName && time24) {
+      const targetDateStr = getDateForDay(dayName);
+      
+      // Ensure the appointment date matches the date displayed for this day column (Current week)
+      if (dayName && time24 && appt.date === targetDateStr) {
         const key = `${dayName}-${time24}`;
         // Store array since multiple patients could theoretically book same slot
         if (!map[key]) map[key] = [];
