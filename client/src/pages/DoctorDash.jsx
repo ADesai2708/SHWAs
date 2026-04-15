@@ -1,7 +1,37 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, LogOut, CalendarDays, Users, TrendingUp, Clock, CheckCircle, ArrowRight, AlertTriangle, FileText, ClipboardList } from 'lucide-react';
+import { Activity, LogOut, CalendarDays, Users, TrendingUp, Clock, CheckCircle, ArrowRight, AlertTriangle, FileText, ClipboardList, User } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+
+// Helper: convert "09:00 AM" or "01:00 PM" to 24h "09:00" / "13:00"
+function to24h(timeStr) {
+  if (!timeStr) return '';
+  // Already 24h format like "09:00"
+  if (!timeStr.includes('AM') && !timeStr.includes('PM')) return timeStr.slice(0, 5);
+  const [timePart, meridiem] = timeStr.split(' ');
+  let [h, m] = timePart.split(':').map(Number);
+  if (meridiem === 'PM' && h !== 12) h += 12;
+  if (meridiem === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+// Helper: get short day name (Mon, Tue, ...) from a date string like "2026-04-15"
+function getDayName(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+}
+
+// Helper: get the date string for a given day name in the current week
+function getDateForDay(dayName) {
+  const dayMap = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5 };
+  const today = new Date();
+  const currentDay = today.getDay(); // 0=Sun
+  const diff = (dayMap[dayName] || 1) - currentDay;
+  const target = new Date(today);
+  target.setDate(today.getDate() + diff);
+  return target.toISOString().split('T')[0];
+}
 
 export default function DoctorDashboard({ user, onLogout }) {
   const navigate = useNavigate();
@@ -14,6 +44,7 @@ export default function DoctorDashboard({ user, onLogout }) {
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [isGoogleSynced, setIsGoogleSynced] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [hoveredSlot, setHoveredSlot] = useState(null);
 
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
   const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
@@ -24,6 +55,22 @@ export default function DoctorDashboard({ user, onLogout }) {
   const emergenciesCount = myAppointments.filter(a => a.isEmergency).length;
   const completedCount = myAppointments.filter(a => a.status === 'Completed').length;
   const totalCount = myAppointments.length;
+
+  // Build a lookup map: "Day-HH:MM" => appointment object for the schedule grid
+  const bookedSlotsMap = useMemo(() => {
+    const map = {};
+    myAppointments.forEach(appt => {
+      const dayName = getDayName(appt.date);
+      const time24 = to24h(appt.time);
+      if (dayName && time24) {
+        const key = `${dayName}-${time24}`;
+        // Store array since multiple patients could theoretically book same slot
+        if (!map[key]) map[key] = [];
+        map[key].push(appt);
+      }
+    });
+    return map;
+  }, [myAppointments]);
 
   const handleToggleBlock = (day, time) => {
     if (!isEditingSchedule) return;
@@ -72,6 +119,9 @@ export default function DoctorDashboard({ user, onLogout }) {
     
     updateAppointmentStatus(id, nextStatus);
   };
+
+  // Count booked slots for the week
+  const totalBookedThisWeek = Object.values(bookedSlotsMap).reduce((sum, arr) => sum + arr.length, 0);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -133,86 +183,263 @@ export default function DoctorDashboard({ user, onLogout }) {
         </div>
 
         {scheduleMode ? (
-          <div className="glass-panel animate-fade-in" style={{ padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <CalendarDays size={24} color="var(--primary)" /> Protocol Weekly Schedule
-                </h3>
-                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Manage your usual availability on SHWAS.</p>
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Schedule Header Panel */}
+            <div className="glass-panel" style={{ padding: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <CalendarDays size={24} color="var(--primary)" /> Weekly Schedule & Bookings
+                  </h3>
+                  <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)' }}>
+                    Patient bookings are reflected in real-time on your schedule grid.
+                    {totalBookedThisWeek > 0 && (
+                      <span style={{ marginLeft: '0.5rem', color: 'var(--primary)', fontWeight: 600 }}>
+                        ({totalBookedThisWeek} booking{totalBookedThisWeek > 1 ? 's' : ''} this week)
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button 
+                    onClick={() => setIsEditingSchedule(!isEditingSchedule)} 
+                    className={isEditingSchedule ? "btn btn-primary" : "btn btn-ghost"}
+                    style={isEditingSchedule ? { background: 'var(--warning)', color: '#000', border: 'none' } : { border: '1px solid var(--border)' }}
+                  >
+                    {isEditingSchedule ? 'Save Schedule Blocks' : 'Set Unavailable Blocks'}
+                  </button>
+                  <button 
+                    onClick={handleSyncGoogle} 
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: isGoogleSynced ? 'var(--success)' : 'var(--primary)', border: 'none' }}
+                    disabled={isSyncing}
+                  >
+                    {isSyncing ? 'Syncing...' : isGoogleSynced ? 'Synced with Google \u2713' : 'Sync Google Calendar'}
+                  </button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button 
-                  onClick={() => setIsEditingSchedule(!isEditingSchedule)} 
-                  className={isEditingSchedule ? "btn btn-primary" : "btn btn-ghost"}
-                  style={isEditingSchedule ? { background: 'var(--warning)', color: '#000', border: 'none' } : { border: '1px solid var(--border)' }}
-                >
-                  {isEditingSchedule ? 'Save Schedule Blocks' : 'Set Unavailable Blocks'}
-                </button>
-                <button 
-                  onClick={handleSyncGoogle} 
-                  className="btn btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: isGoogleSynced ? 'var(--success)' : 'var(--primary)', border: 'none' }}
-                  disabled={isSyncing}
-                >
-                  {isSyncing ? 'Syncing...' : isGoogleSynced ? 'Synced with Google \u2713' : 'Sync Google Calendar'}
-                </button>
-              </div>
-            </div>
 
-            {isEditingSchedule && (
-              <div className="animate-fade-in" style={{ background: 'var(--warning)', color: '#000', padding: '0.5rem 1rem', borderRadius: '8px', marginBottom: '1.5rem', display: 'inline-block', fontWeight: 600, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                Edit Mode Active: Click any timeslot below to toggle it as Unavailable/Blocked.
-              </div>
-            )}
+              {isEditingSchedule && (
+                <div className="animate-fade-in" style={{ background: 'var(--warning)', color: '#000', padding: '0.5rem 1rem', borderRadius: '8px', marginBottom: '1.5rem', display: 'inline-block', fontWeight: 600, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                  Edit Mode Active: Click any timeslot below to toggle it as Unavailable/Blocked.
+                </div>
+              )}
 
-            <div style={{ overflowX: 'auto', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `80px repeat(${days.length}, 1fr)`, borderBottom: '1px solid var(--border)' }}>
-                <div style={{ padding: '1rem', background: 'var(--background)' }}></div>
-                {days.map(day => (
-                  <div key={day} style={{ padding: '1rem', fontWeight: 'bold', textAlign: 'center', borderLeft: '1px solid var(--border)', background: 'var(--background)' }}>{day}</div>
+              {/* Legend */}
+              <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: '4px', background: 'rgba(33,168,150,0.15)', border: '1px solid rgba(33,168,150,0.3)' }}></div>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Available</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: '4px', background: 'var(--primary)', border: '1px solid var(--primary)' }}></div>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Booked by Patient</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: '4px', background: 'var(--danger)', border: '1px solid var(--danger)' }}></div>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Blocked / Unavailable</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: '4px', background: 'var(--warning)', border: '1px solid var(--warning)' }}></div>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Emergency</span>
+                </div>
+              </div>
+
+              {/* Schedule Grid */}
+              <div style={{ overflowX: 'auto', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                {/* Header Row with Day + Date */}
+                <div style={{ display: 'grid', gridTemplateColumns: `80px repeat(${days.length}, 1fr)`, borderBottom: '2px solid var(--border)' }}>
+                  <div style={{ padding: '1rem', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Clock size={16} color="var(--text-secondary)" />
+                  </div>
+                  {days.map(day => (
+                    <div key={day} style={{ padding: '0.75rem 0.5rem', fontWeight: 'bold', textAlign: 'center', borderLeft: '1px solid var(--border)', background: 'var(--background)' }}>
+                      <div style={{ fontSize: '1rem' }}>{day}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 400 }}>{getDateForDay(day)}</div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Time Rows */}
+                {timeSlots.map(time => (
+                  <div key={time} style={{ display: 'grid', gridTemplateColumns: `80px repeat(${days.length}, 1fr)`, borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', borderRight: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}>{time}</div>
+                    {days.map(day => {
+                      const slotKey = `${day}-${time}`;
+                      const isBlocked = blockedSlots.includes(slotKey);
+                      const bookedAppts = bookedSlotsMap[slotKey] || [];
+                      const isBooked = bookedAppts.length > 0;
+                      const hasEmergency = bookedAppts.some(a => a.isEmergency);
+                      const isHovered = hoveredSlot === slotKey;
+
+                      // Determine cell style
+                      let cellBg = 'transparent';
+                      let badgeBg = 'rgba(33,168,150,0.15)';
+                      let badgeColor = 'var(--success)';
+                      let badgeText = 'Available';
+                      let cursor = isEditingSchedule ? 'pointer' : 'default';
+
+                      if (isBooked && hasEmergency) {
+                        cellBg = 'rgba(243, 156, 18, 0.06)';
+                        badgeBg = 'var(--warning)';
+                        badgeColor = '#000';
+                        badgeText = null; // Will render patient info
+                      } else if (isBooked) {
+                        cellBg = 'rgba(15,107,146,0.05)';
+                        badgeBg = 'var(--primary)';
+                        badgeColor = 'white';
+                        badgeText = null; // Will render patient info
+                      } else if (isBlocked) {
+                        cellBg = 'rgba(230, 57, 70, 0.05)';
+                        badgeBg = 'var(--danger)';
+                        badgeColor = 'white';
+                        badgeText = 'Blocked';
+                      }
+
+                      return (
+                        <div 
+                          key={slotKey} 
+                          onClick={() => !isBooked && handleToggleBlock(day, time)}
+                          onMouseEnter={() => setHoveredSlot(slotKey)}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          style={{ 
+                            padding: '0.5rem', 
+                            textAlign: 'center', 
+                            borderRight: '1px solid var(--border)',
+                            background: isHovered && isEditingSchedule && !isBooked 
+                              ? (isBlocked ? 'rgba(230, 57, 70, 0.15)' : 'rgba(33,168,150,0.1)') 
+                              : cellBg,
+                            cursor: isBooked ? 'default' : cursor,
+                            transition: 'all 0.2s ease',
+                            minHeight: '60px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {isBooked ? (
+                            <div style={{ 
+                              width: '100%', 
+                              padding: '0.4rem 0.5rem', 
+                              borderRadius: '8px', 
+                              background: hasEmergency ? 'linear-gradient(135deg, var(--warning), #e67e22)' : 'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                              color: hasEmergency ? '#000' : 'white',
+                              textAlign: 'left',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                              position: 'relative',
+                              overflow: 'hidden',
+                              animation: hasEmergency ? 'pulse 2s infinite' : 'none'
+                            }}>
+                              {/* Subtle decorative stripe */}
+                              <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: hasEmergency ? '#c0392b' : 'rgba(255,255,255,0.3)' }}></div>
+                              {bookedAppts.map((appt, i) => (
+                                <div key={appt.id || i} style={{ paddingLeft: '0.4rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.15rem' }}>
+                                    <User size={11} />
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, lineHeight: 1.2 }}>
+                                      {appt.name}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '0.65rem', opacity: 0.85, lineHeight: 1.3 }}>
+                                    {hasEmergency ? '🚨 ' : ''}{appt.appointmentType || 'Consultation'}
+                                  </div>
+                                  <div style={{ fontSize: '0.6rem', opacity: 0.7, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {appt.disease}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ 
+                              padding: '0.3rem 0.6rem', 
+                              borderRadius: '8px', 
+                              background: badgeBg,
+                              color: badgeColor,
+                              fontSize: '0.8rem',
+                              fontWeight: 'bold',
+                              display: 'inline-block',
+                              width: '100%',
+                              opacity: isEditingSchedule ? 1 : 0.8
+                            }}>
+                              {badgeText}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 ))}
               </div>
-              
-              {timeSlots.map(time => (
-                <div key={time} style={{ display: 'grid', gridTemplateColumns: `80px repeat(${days.length}, 1fr)`, borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', borderRight: '1px solid var(--border)' }}>{time}</div>
-                  {days.map(day => {
-                    const isBlocked = blockedSlots.includes(`${day}-${time}`);
-                    return (
-                      <div 
-                        key={`${day}-${time}`} 
-                        onClick={() => handleToggleBlock(day, time)}
-                        style={{ 
-                          padding: '1rem', 
-                          textAlign: 'center', 
-                          borderRight: '1px solid var(--border)',
-                          background: isBlocked ? 'rgba(230, 57, 70, 0.05)' : 'transparent',
-                          cursor: isEditingSchedule ? 'pointer' : 'default',
-                          transition: 'background 0.2s',
-                        }}
-                        onMouseOver={(e) => { if(isEditingSchedule) e.currentTarget.style.background = isBlocked ? 'rgba(230, 57, 70, 0.15)' : 'rgba(33,168,150,0.1)' }}
-                        onMouseOut={(e) => { e.currentTarget.style.background = isBlocked ? 'rgba(230, 57, 70, 0.05)' : 'transparent' }}
-                      >
-                        <span style={{ 
-                          padding: '0.3rem 0.6rem', 
-                          borderRadius: '8px', 
-                          background: isBlocked ? 'var(--danger)' : 'rgba(33,168,150,0.15)',
-                          color: isBlocked ? 'white' : 'var(--success)',
-                          fontSize: '0.8rem',
-                          fontWeight: 'bold',
-                          display: 'inline-block',
-                          width: '100%',
-                          opacity: isEditingSchedule ? 1 : 0.8
-                        }}>
-                          {isBlocked ? 'Blocked' : 'Available'}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
             </div>
+
+            {/* Booked Appointments List Below Grid */}
+            {totalBookedThisWeek > 0 && (
+              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ClipboardList size={20} color="var(--primary)" /> Booked Appointments This Week
+                  <span style={{ 
+                    background: 'var(--primary)', color: 'white', fontSize: '0.75rem', 
+                    padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 600, marginLeft: '0.5rem' 
+                  }}>
+                    {totalBookedThisWeek}
+                  </span>
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                  {Object.entries(bookedSlotsMap).map(([slotKey, appts]) =>
+                    appts.map((appt, i) => (
+                      <div key={appt.id || `${slotKey}-${i}`} style={{
+                        padding: '1rem 1.25rem',
+                        borderRadius: '10px',
+                        border: appt.isEmergency ? '1px solid var(--warning)' : '1px solid var(--border)',
+                        background: appt.isEmergency ? 'rgba(243,156,18,0.04)' : 'var(--surface)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '1rem',
+                        transition: 'box-shadow 0.2s, transform 0.2s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
+                      >
+                        <div style={{ 
+                          width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                          background: appt.isEmergency ? 'var(--warning)' : 'var(--primary-light)', 
+                          color: appt.isEmergency ? '#000' : 'white', 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                          fontSize: '1.1rem', fontWeight: 700 
+                        }}>
+                          {appt.name?.charAt(0) || '?'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{appt.name}</span>
+                            {appt.isEmergency && (
+                              <span style={{ background: 'var(--danger)', color: 'white', fontSize: '0.65rem', padding: '0.1rem 0.4rem', borderRadius: '6px', fontWeight: 600 }}>EMERGENCY</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                            <span>📅 {appt.date}</span>
+                            <span>🕐 {appt.time}</span>
+                            <span>• {appt.appointmentType || 'Consultation'}</span>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {appt.disease}
+                          </div>
+                        </div>
+                        <div>
+                          <span style={{ 
+                            padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 600,
+                            background: appt.status === 'Completed' ? 'rgba(33,168,150,0.1)' : appt.status === 'In Progress' ? 'rgba(15,107,146,0.1)' : 'rgba(243,156,18,0.1)',
+                            color: appt.status === 'Completed' ? 'var(--success)' : appt.status === 'In Progress' ? 'var(--primary)' : 'var(--warning)'
+                          }}>
+                            {appt.status || 'Waiting'}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <>
