@@ -1,22 +1,23 @@
 import React, { useState, useContext } from 'react';
-import { Activity, LogOut, BarChart4, Users, LayoutDashboard, Settings, UserPlus, HeartPulse, Stethoscope, FileText, AlertTriangle } from 'lucide-react';
+import { Activity, LogOut, BarChart4, Users, LayoutDashboard, Settings, UserPlus, HeartPulse, Stethoscope, FileText, AlertTriangle, Building, CheckCircle, Server, Plus, Minus } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, Legend } from 'recharts';
 
 export default function AdminDashboard({ user, onLogout }) {
-  const { appointments, notifications, removeNotification, allocateEmergency } = useContext(AuthContext);
+  const { appointments, updateAppointmentStatus, notifications, removeNotification, allocateEmergency, doctors, addDoctor, toggleDoctorStatus } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('overview');
   const [allocationSelections, setAllocationSelections] = useState({});
-
-  // Mock list of doctors mapped to departments
-  const defaultDoctors = [
-    { id: '1', name: 'Dr. Sarah Jenkins', department: 'Cardiology', status: 'Active', casesToday: 0 },
-    { id: '2', name: 'Dr. Robert Fox', department: 'Neurology', status: 'Active', casesToday: 0 },
-    { id: '3', name: 'Dr. Alice Walker', department: 'Pediatrics', status: 'On Leave', casesToday: 0 },
-    { id: '4', name: 'Dr. James Smith', department: 'General Medicine', status: 'Active', casesToday: 0 },
-  ];
+  const [showAddDoctor, setShowAddDoctor] = useState(false);
+  const [newDoctorData, setNewDoctorData] = useState({ name: '', department: 'Cardiology', status: 'Active' });
 
   const specialists = ['Cardiology', 'Dermatology', 'Neurology', 'Orthopedics', 'Pediatrics', 'General Medicine'];
+
+  const [facilityStats, setFacilityStats] = useState({
+    icu: { id: 'icu', name: 'Intensive Care Unit (ICU)', total: 20, occupied: 14, color: 'var(--danger)' },
+    er: { id: 'er', name: 'Emergency Room (ER)', total: 15, occupied: 12, color: '#f4a261' },
+    surgery: { id: 'surgery', name: 'Surgery & Theaters', total: 10, occupied: 4, color: '#0f6b92' },
+    general: { id: 'general', name: 'General Ward', total: 60, occupied: 42, color: 'var(--success)' }
+  });
 
   // Dynamically compute department case loads from global appointments
   const departmentStats = appointments.reduce((acc, appt) => {
@@ -47,6 +48,13 @@ export default function AdminDashboard({ user, onLogout }) {
         color: COLORS[index % COLORS.length]
       }));
 
+      const systemLogs = [
+        { id: 1, time: '10:42 AM', type: 'INFO', message: 'Night shift staff roster uploaded successfully.' },
+        { id: 2, time: '10:15 AM', type: 'ALERT', message: 'Secondary ER capacity breached 80% threshold.' },
+        { id: 3, time: '09:05 AM', type: 'SYSTEM', message: 'Hospital records daily backup sequence completed.' },
+        { id: 4, time: '08:30 AM', type: 'ALERT', message: 'Power redundancy check passed.' }
+      ];
+
       return (
         <div className="animate-fade-in">
           <div className="grid grid-cols-3" style={{ marginBottom: '2rem', gap: '1.5rem' }}>
@@ -67,8 +75,8 @@ export default function AdminDashboard({ user, onLogout }) {
             <div className="glass-panel" style={{ background: 'var(--surface)' }}>
               <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Active Medical Staff</h3>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem' }}>
-                <span style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>{defaultDoctors.filter(d => d.status === 'Active').length}</span>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.9rem', marginBottom: '0.25rem' }}>/ {defaultDoctors.length} total</span>
+                <span style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>{doctors ? doctors.filter(d => d.status === 'Active').length : 0}</span>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: '0.9rem', marginBottom: '0.25rem' }}>/ {doctors ? doctors.length : 0} total</span>
               </div>
             </div>
           </div>
@@ -143,17 +151,73 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
             </div>
           </div>
+
+          {/* System Audit Log Widget */}
+          <div className="glass-panel" style={{ background: 'var(--surface)', marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--background)' }}>
+               <h3 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--text-primary)' }}><Server size={18} style={{ display: 'inline', marginRight: '0.5rem' }}/> System Audit Logs</h3>
+            </div>
+            <div style={{ padding: '0.5rem 0' }}>
+              {systemLogs.map(log => (
+                <div key={log.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '0.75rem 1.5rem', borderBottom: '1px solid var(--border)', fontSize: '0.9rem' }}>
+                  <span style={{ color: 'var(--text-secondary)', minWidth: '70px' }}>{log.time}</span>
+                  <span style={{ 
+                    padding: '0.15rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600,
+                    background: log.type === 'ALERT' ? 'rgba(230, 57, 70, 0.1)' : 'rgba(15,107,146,0.1)',
+                    color: log.type === 'ALERT' ? 'var(--danger)' : 'var(--primary)'
+                  }}>
+                    {log.type}
+                  </span>
+                  <span style={{ color: 'var(--text-primary)' }}>{log.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       );
     }
 
     if (activeTab === 'doctors') {
+      const handleAddNewDoctor = (e) => {
+        if (e) e.preventDefault();
+        if (!newDoctorData.name || !newDoctorData.name.trim()) {
+          alert("Please enter a valid doctor name.");
+          return;
+        }
+        let formattedName = newDoctorData.name.trim();
+        if (!formattedName.toLowerCase().startsWith('dr.')) {
+           formattedName = 'Dr. ' + formattedName;
+        }
+        addDoctor({ name: formattedName, department: newDoctorData.department, status: newDoctorData.status });
+        setNewDoctorData({ name: '', department: 'Cardiology', status: 'Active' });
+        setShowAddDoctor(false);
+      };
+
       return (
         <div className="glass-panel animate-fade-in" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Doctors & Staff Directory</h3>
-            <button className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}><UserPlus size={16} /> Add Personnel</button>
+            <button className={showAddDoctor ? "btn btn-ghost" : "btn btn-primary"} onClick={() => setShowAddDoctor(!showAddDoctor)} style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', border: showAddDoctor ? '1px solid var(--border)': 'none' }}>
+              <UserPlus size={16} /> {showAddDoctor ? 'Cancel' : 'Add Personnel'}
+            </button>
           </div>
+
+          {showAddDoctor && (
+            <div className="animate-fade-in" style={{ padding: '1.5rem', background: 'var(--background)', borderBottom: '1px solid var(--border)' }}>
+              <h4 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--primary)' }}>Register New Doctor</h4>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input type="text" placeholder="Full Name (e.g. John Doe)" className="form-input" style={{ flex: '1', margin: 0, minWidth: '200px' }} value={newDoctorData.name} onChange={(e) => setNewDoctorData({...newDoctorData, name: e.target.value})} />
+                <select className="form-input" style={{ width: 'auto', margin: 0 }} value={newDoctorData.department} onChange={(e) => setNewDoctorData({...newDoctorData, department: e.target.value})}>
+                  {specialists.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select className="form-input" style={{ width: 'auto', margin: 0 }} value={newDoctorData.status} onChange={(e) => setNewDoctorData({...newDoctorData, status: e.target.value})}>
+                  <option value="Active">Active</option>
+                  <option value="On Leave">On Leave</option>
+                </select>
+                <button type="button" className="btn btn-primary" onClick={handleAddNewDoctor}>Save Doctor</button>
+              </div>
+            </div>
+          )}
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
@@ -161,10 +225,11 @@ export default function AdminDashboard({ user, onLogout }) {
                 <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Department</th>
                 <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Live Cases Addressed</th>
                 <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Status</th>
+                <th style={{ padding: '1rem 1.5rem', fontWeight: 500, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {defaultDoctors.map(doc => {
+              {doctors && doctors.map(doc => {
                 // Dynamically assign case loads connecting the Doctor to the Patient logic
                 const matchedCases = departmentStats[doc.department] || 0;
                 return (
@@ -178,10 +243,19 @@ export default function AdminDashboard({ user, onLogout }) {
                       <span style={{ 
                         background: doc.status === 'Active' ? 'rgba(33,168,150,0.1)' : 'rgba(230, 57, 70, 0.1)', 
                         color: doc.status === 'Active' ? 'var(--success)' : 'var(--danger)', 
-                        padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600 
+                        padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600,
                       }}>
                         {doc.status}
                       </span>
+                    </td>
+                    <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
+                      <button 
+                        className="btn btn-ghost" 
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', border: '1px solid var(--border)' }}
+                        onClick={() => toggleDoctorStatus(doc.id)}
+                      >
+                         Toggle Leave
+                      </button>
                     </td>
                   </tr>
                 );
@@ -208,6 +282,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Symptoms</th>
                   <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Queue Status</th>
                   <th style={{ padding: '1rem 1.5rem', fontWeight: 500 }}>Clinical History</th>
+                  <th style={{ padding: '1rem 1.5rem', fontWeight: 500, textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -228,6 +303,17 @@ export default function AdminDashboard({ user, onLogout }) {
                         </div>
                       ) : (
                         <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Pending consultation...</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
+                      {p.status !== 'Completed' && (
+                        <button 
+                          className="btn btn-ghost" 
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', color: 'var(--success)', border: '1px solid rgba(33,168,150,0.3)' }}
+                          onClick={() => updateAppointmentStatus(p.id, 'Completed')}
+                        >
+                          <CheckCircle size={14} style={{ display: 'inline', marginRight: '0.25rem' }}/> Discharge
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -325,6 +411,61 @@ export default function AdminDashboard({ user, onLogout }) {
         </div>
       );
     }
+
+    if (activeTab === 'facility') {
+      const updateFacilityOccupancy = (key, delta) => {
+        setFacilityStats(prev => {
+          const stat = prev[key];
+          const newOccupied = Math.max(0, Math.min(stat.total, stat.occupied + delta));
+          return { ...prev, [key]: { ...stat, occupied: newOccupied } };
+        });
+      };
+
+      return (
+        <div className="glass-panel animate-fade-in" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+            <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--primary)' }}><Building size={20} style={{ display: 'inline', marginRight: '0.5rem' }}/> Facility & Bed Allocation</h3>
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Live tracking of hospital physical resources and bed availability.</p>
+          </div>
+          <div style={{ padding: '1.5rem' }}>
+            <div className="grid grid-cols-2" style={{ gap: '1.5rem' }}>
+              {Object.keys(facilityStats).map(key => {
+                const stat = facilityStats[key];
+                const percentage = Math.round((stat.occupied / stat.total) * 100);
+                return (
+                  <div key={key} style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem', background: 'var(--background)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h4 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{stat.name}</h4>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, background: 'rgba(15,107,146,0.1)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: '12px' }}>{stat.total - stat.occupied} Beds Ready</span>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+                         <span style={{ fontSize: '2.5rem', fontWeight: 700, lineHeight: 1, color: 'var(--text-primary)' }}>{stat.occupied}</span>
+                         <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>/ {stat.total}</span>
+                       </div>
+                       <div style={{ display: 'flex', gap: '0.25rem' }}>
+                         <button onClick={() => updateFacilityOccupancy(key, -1)} className="btn btn-ghost" style={{ padding: '0.25rem', border: '1px solid var(--border)', minWidth: '32px' }}><Minus size={16}/></button>
+                         <button onClick={() => updateFacilityOccupancy(key, 1)} className="btn btn-ghost" style={{ padding: '0.25rem', border: '1px solid var(--border)', minWidth: '32px' }}><Plus size={16}/></button>
+                       </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div style={{ height: '8px', width: '100%', background: 'var(--surface)', borderRadius: '4px', overflow: 'hidden', marginBottom: '0.75rem', border: '1px solid var(--border)' }}>
+                       <div style={{ height: '100%', width: `${percentage}%`, background: stat.color, transition: 'width 0.3s ease' }}></div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      <span>Occupancy Rate</span>
+                      <span style={{ fontWeight: 600, color: percentage > 85 ? 'var(--danger)' : 'var(--text-primary)' }}>{percentage}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
   };
 
   const navItemStyle = (tabName) => ({
@@ -364,6 +505,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
           <button onClick={() => setActiveTab('emergencies')} style={navItemStyle('emergencies')}>
             <AlertTriangle size={20} /> Emergency Routing
+          </button>
+
+          <button onClick={() => setActiveTab('facility')} style={navItemStyle('facility')}>
+            <Building size={20} /> Facility Operations
           </button>
         </div>
 
@@ -409,7 +554,7 @@ export default function AdminDashboard({ user, onLogout }) {
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 700, textTransform: 'capitalize' }}>
-              {activeTab === 'overview' ? 'Hospital Overview' : activeTab === 'doctors' ? 'Medical Staff' : activeTab === 'patients' ? 'Patient Information' : 'Emergency Routing'}
+              {activeTab === 'overview' ? 'Hospital Overview' : activeTab === 'doctors' ? 'Medical Staff' : activeTab === 'patients' ? 'Patient Information' : activeTab === 'facility' ? 'Facility Operations' : 'Emergency Routing'}
             </h1>
             <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 0' }}>
               Live hospital informatics monitored from the control center.

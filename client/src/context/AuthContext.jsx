@@ -8,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [appointments, setAppointments] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [doctors, setDoctors] = useState([]);
   const socketRef = useRef(null);
 
   useEffect(() => {
@@ -19,6 +20,20 @@ export const AuthProvider = ({ children }) => {
 
     const storedPrescriptions = localStorage.getItem('prescriptions');
     if (storedPrescriptions) setPrescriptions(JSON.parse(storedPrescriptions));
+
+    const storedDoctors = localStorage.getItem('doctors');
+    if (storedDoctors) {
+      setDoctors(JSON.parse(storedDoctors));
+    } else {
+      const defaultDoctors = [
+        { id: '1', name: 'Dr. Sarah Jenkins', department: 'Cardiology', status: 'Active', casesToday: 0 },
+        { id: '2', name: 'Dr. Robert Fox', department: 'Neurology', status: 'Active', casesToday: 0 },
+        { id: '3', name: 'Dr. Alice Walker', department: 'Pediatrics', status: 'On Leave', casesToday: 0 },
+        { id: '4', name: 'Dr. James Smith', department: 'General Medicine', status: 'Active', casesToday: 0 },
+      ];
+      setDoctors(defaultDoctors);
+      localStorage.setItem('doctors', JSON.stringify(defaultDoctors));
+    }
 
     // Connect Socket
     socketRef.current = io('http://localhost:5000');
@@ -92,6 +107,29 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('prescriptions', JSON.stringify(updated));
   };
 
+  const addDoctor = (doctorData) => {
+    setDoctors(prevDoctors => {
+      const defaultDoctor = { id: Date.now().toString(), name: '', department: 'General Medicine', status: 'Active', casesToday: 0 };
+      const newDoctor = { ...defaultDoctor, ...doctorData };
+      const updated = [...prevDoctors, newDoctor];
+      localStorage.setItem('doctors', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const toggleDoctorStatus = (doctorId) => {
+    setDoctors(prevDoctors => {
+      const updated = prevDoctors.map(doc => {
+        if (doc.id === doctorId) {
+          return { ...doc, status: doc.status === 'Active' ? 'On Leave' : 'Active' };
+        }
+        return doc;
+      });
+      localStorage.setItem('doctors', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const declareEmergency = (patientData) => {
     if (socketRef.current) {
       const emergencyApt = {
@@ -139,6 +177,7 @@ export const AuthProvider = ({ children }) => {
       user, login, logout, 
       appointments, addAppointment, updateAppointmentStatus, 
       prescriptions, addPrescription,
+      doctors, addDoctor, toggleDoctorStatus,
       declareEmergency, notifications, removeNotification, allocateEmergency
     }}>
       {children}
