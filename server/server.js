@@ -5,6 +5,8 @@ const connectDB = require('./config/db');
 const http = require('http');
 const { Server } = require('socket.io');
 const { predictDepartment } = require('./ml/predictSpecialty');
+const User = require('./models/User');
+const bcrypt = require('bcrypt');
 
 
 const app = express();
@@ -50,7 +52,24 @@ app.use(cors());
 app.use(express.json());
 
 // Database Connection
-connectDB();
+connectDB().then(async () => {
+  // Initialize default Admin if it doesn't exist
+  try {
+    const adminExists = await User.findOne({ role: 'admin', username: 'admin' });
+    if (!adminExists) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash('admin123', salt);
+      await User.create({
+        username: 'admin',
+        password: hashedPassword,
+        role: 'admin'
+      });
+      console.log('Default Admin user created (username: admin, password: admin123)');
+    }
+  } catch (err) {
+    console.error('Error initializing admin user:', err);
+  }
+});
 
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
