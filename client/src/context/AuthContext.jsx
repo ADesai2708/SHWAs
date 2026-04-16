@@ -12,9 +12,13 @@ export const AuthProvider = ({ children }) => {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) setUser(JSON.parse(storedUser));
 
+   const storedUser = localStorage.getItem('user');
+const storedToken = localStorage.getItem('token');
+
+if (storedUser && storedToken) {
+  setUser(JSON.parse(storedUser));
+}
     const storedAppts = localStorage.getItem('appointments');
     if (storedAppts) setAppointments(JSON.parse(storedAppts));
 
@@ -74,15 +78,21 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const login = (userData) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-  };
+  const login = (data) => {
+  setUser(data.user);
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-  };
+  // store user
+  localStorage.setItem('user', JSON.stringify(data.user));
+
+  //  store token (CRITICAL)
+  localStorage.setItem('token', data.token);
+};
+
+ const logout = () => {
+  setUser(null);
+  localStorage.removeItem('user');
+  localStorage.removeItem('token'); 
+};
 
   const addAppointment = (apptData) => {
     const updated = [...appointments, { ...apptData, id: Date.now(), status: 'Waiting' }];

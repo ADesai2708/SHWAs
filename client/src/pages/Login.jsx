@@ -29,8 +29,7 @@ export default function Login({ onLogin }) {
       }
 
       // data contains { token, user: { id, name, role } }
-      localStorage.setItem('token', data.token);
-      onLogin(data.user);
+      onLogin(data);
       navigate(`/${data.user.role}`);
     } catch (err) {
       setError(err.message);
