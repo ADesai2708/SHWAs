@@ -57,11 +57,10 @@ connectDB().then(async () => {
   try {
     const adminExists = await User.findOne({ role: 'admin', username: 'admin' });
     if (!adminExists) {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('admin123', salt);
+      // Pass plain text — the User model pre-save hook handles hashing
       await User.create({
         username: 'admin',
-        password: hashedPassword,
+        password: 'admin123',
         role: 'admin'
       });
       console.log('Default Admin user created (username: admin, password: admin123)');
